@@ -1,0 +1,191 @@
+type Query {
+  agents: [Agent!]!
+  agent(id: ID!): Agent
+  session(id: ID!): AgentSession
+  sessions: [AgentSession!]!
+  approvalRequests(sessionId: ID!): [ApprovalRequest!]!
+  promptVersions(agentId: ID!): [PromptVersion!]!
+  evalCases: [EvalCase!]!
+  evalResults(promptVersionId: ID!): [EvalResult!]!
+  crmRecords(type: CrmType, search: String): [CrmRecord!]!
+  pipelineSummary: PipelineSummary!
+}
+
+type Mutation {
+  startSession(agentId: ID): AgentSession!
+  sendMessage(sessionId: ID!, content: String!): Message!
+  resolveApproval(approvalId: ID!, approved: Boolean!): ApprovalRequest!
+  createPromptVersion(agentId: ID!, systemPrompt: String!): PromptVersion!
+  activatePromptVersion(promptVersionId: ID!): PromptVersion!
+  runEvals(agentId: ID!, promptVersionId: ID!): EvalRun!
+  updateCrmRecord(id: ID!, data: JSON!): CrmRecord!
+  endSession(sessionId: ID!): AgentSession!
+}
+
+type Subscription {
+  agentEvent(sessionId: ID!): AgentEvent!
+  approvalRequired(sessionId: ID!): ApprovalRequest!
+}
+
+# Agent event stream - the heart of the real-time UX
+type AgentEvent {
+  sessionId: ID!
+  type: AgentEventType!
+  agentType: AgentType
+  content: String
+  toolCall: ToolCallEvent
+  toolResult: ToolResultEvent
+  approval: ApprovalRequest
+  isComplete: Boolean!
+  error: String
+}
+
+enum AgentEventType {
+  ROUTING
+  AGENT_START
+  TOKEN
+  TOOL_CALL
+  TOOL_RESULT
+  APPROVAL_REQUIRED
+  AGENT_COMPLETE
+  SESSION_COMPLETE
+  ERROR
+}
+
+type ToolCallEvent {
+  toolName: String!
+  toolInput: JSON!
+}
+
+type ToolResultEvent {
+  toolName: String!
+  result: JSON!
+}
+
+type Agent {
+  id: ID!
+  name: String!
+  description: String!
+  type: AgentType!
+  systemPrompt: String!
+  tools: [String!]!
+  createdAt: String!
+  promptVersions: [PromptVersion!]!
+}
+
+enum AgentType {
+  ROUTER
+  CRM
+  RESEARCH
+  SYNTHESIS
+}
+
+type AgentSession {
+  id: ID!
+  agent: Agent!
+  status: SessionStatus!
+  messages: [Message!]!
+  createdAt: String!
+}
+
+enum SessionStatus {
+  ACTIVE
+  COMPLETED
+  ABORTED
+}
+
+type Message {
+  id: ID!
+  role: MessageRole!
+  content: String!
+  agentType: AgentType
+  createdAt: String!
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  TOOL
+  SYSTEM
+}
+
+type ApprovalRequest {
+  id: ID!
+  sessionId: ID!
+  toolName: String!
+  toolInput: JSON!
+  status: ApprovalStatus!
+  createdAt: String!
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+type PromptVersion {
+  id: ID!
+  agentId: ID!
+  version: Int!
+  systemPrompt: String!
+  isActive: Boolean!
+  createdAt: String!
+  evalResults: [EvalResult!]!
+  avgScore: Float
+}
+
+type EvalCase {
+  id: ID!
+  query: String!
+  expectedOutput: String
+  category: String
+}
+
+type EvalResult {
+  id: ID!
+  evalCase: EvalCase!
+  actualOutput: String!
+  score: Float!
+  reasoning: String!
+  createdAt: String!
+}
+
+type EvalRun {
+  promptVersionId: ID!
+  totalCases: Int!
+  avgScore: Float!
+  results: [EvalResult!]!
+}
+
+type CrmRecord {
+  id: ID!
+  type: CrmType!
+  name: String!
+  data: JSON!
+  createdAt: String!
+  updatedAt: String!
+}
+
+enum CrmType {
+  ACCOUNT
+  OPPORTUNITY
+  CONTACT
+  LEAD
+}
+
+type PipelineSummary {
+  totalOpportunities: Int!
+  totalValue: Float!
+  weightedValue: Float!
+  byStage: [StageBreakdown!]!
+  atRiskCount: Int!
+}
+
+type StageBreakdown {
+  stage: String!
+  count: Int!
+  value: Float!
+}
+
+scalar JSON

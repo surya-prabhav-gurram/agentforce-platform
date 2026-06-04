@@ -1,0 +1,154 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+model Agent {
+  id           String   @id @default(uuid())
+  name         String
+  description  String
+  type         AgentType
+  systemPrompt String
+  tools        String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions       AgentSession[]
+  promptVersions PromptVersion[]
+
+  @@map("agents")
+}
+
+enum AgentType {
+  ROUTER
+  CRM
+  RESEARCH
+  SYNTHESIS
+}
+
+model AgentSession {
+  id        String        @id @default(uuid())
+  agentId   String
+  agent     Agent         @relation(fields: [agentId], references: [id])
+  userId    String?
+  status    SessionStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  messages  Message[]
+  approvals ApprovalRequest[]
+
+  @@map("agent_sessions")
+}
+
+enum SessionStatus {
+  ACTIVE
+  COMPLETED
+  ABORTED
+}
+
+model Message {
+  id          String     @id @default(uuid())
+  sessionId   String
+  session     AgentSession @relation(fields: [sessionId], references: [id])
+  role        MessageRole
+  content     String
+  toolCalls   Json?
+  toolResults Json?
+  agentType   AgentType?
+  embedding   Unsupported("vector(1536)")?
+  createdAt   DateTime   @default(now())
+
+  @@map("messages")
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  TOOL
+  SYSTEM
+}
+
+model ApprovalRequest {
+  id         String         @id @default(uuid())
+  sessionId  String
+  session    AgentSession   @relation(fields: [sessionId], references: [id])
+  toolName   String
+  toolInput  Json
+  status     ApprovalStatus @default(PENDING)
+  resolvedAt DateTime?
+  createdAt  DateTime       @default(now())
+
+  @@map("approval_requests")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model PromptVersion {
+  id           String   @id @default(uuid())
+  agentId      String
+  agent        Agent    @relation(fields: [agentId], references: [id])
+  version      Int
+  systemPrompt String
+  isActive     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  evalResults EvalResult[]
+
+  @@unique([agentId, version])
+  @@map("prompt_versions")
+}
+
+model EvalCase {
+  id             String   @id @default(uuid())
+  query          String
+  expectedOutput String?
+  category       String?
+  createdAt      DateTime @default(now())
+
+  evalResults EvalResult[]
+
+  @@map("eval_cases")
+}
+
+model EvalResult {
+  id              String        @id @default(uuid())
+  promptVersionId String
+  promptVersion   PromptVersion @relation(fields: [promptVersionId], references: [id])
+  evalCaseId      String
+  evalCase        EvalCase      @relation(fields: [evalCaseId], references: [id])
+  actualOutput    String
+  score           Float
+  reasoning       String
+  createdAt       DateTime      @default(now())
+
+  @@map("eval_results")
+}
+
+model CrmRecord {
+  id        String   @id @default(uuid())
+  type      CrmType
+  name      String
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("crm_records")
+}
+
+enum CrmType {
+  ACCOUNT
+  OPPORTUNITY
+  CONTACT
+  LEAD
+}

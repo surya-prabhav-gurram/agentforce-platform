@@ -1,0 +1,67 @@
+
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: afp_postgres
+    environment:
+      POSTGRES_USER: afp
+      POSTGRES_PASSWORD: afppassword
+      POSTGRES_DB: agentforce_platform
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U afp -d agentforce_platform']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: afp_backend
+    ports:
+      - '4000:4000'
+    environment:
+      DATABASE_URL: postgresql://afp:afppassword@postgres:5432/agentforce_platform
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      JWT_SECRET: ${JWT_SECRET:-supersecretjwt}
+      NODE_ENV: production
+      PORT: 4000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: afp_frontend
+    ports:
+      - '3000:3000'
+    environment:
+      VITE_GRAPHQL_URL: http://localhost:4000/graphql
+      VITE_WS_URL: ws://localhost:4000/graphql
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  python_services:
+    build:
+      context: ./python-services
+      dockerfile: Dockerfile
+    container_name: afp_python
+    environment:
+      DATABASE_URL: postgresql://afp:afppassword@postgres:5432/agentforce_platform
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:

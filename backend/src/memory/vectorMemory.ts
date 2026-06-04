@@ -63,7 +63,7 @@ export async function retrieveRelevantContext(
     const results = await prisma.$queryRaw<Array<{ content: string; similarity: number }>>`
       SELECT content, 1 - (embedding <=> ${JSON.stringify(queryEmbedding)}::vector) as similarity
       FROM messages
-      WHERE session_id = ${sessionId}
+      WHERE "sessionId" = ${sessionId}
         AND role = 'ASSISTANT'
         AND embedding IS NOT NULL
       ORDER BY embedding <=> ${JSON.stringify(queryEmbedding)}::vector

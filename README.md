@@ -176,7 +176,7 @@ Running all 20 cases against every agent produces meaningless scores — a Resea
 
 ---
 
-## Interview Talking Points
+## Important Points
 
 1. **Multi-agent handoff** — The Router Agent classifies queries as JSON `{targetAgent, reasoning, enrichedQuery}`. For complex queries it runs CRM + Research agents in parallel with `Promise.all`, then passes both outputs to Synthesis.
 

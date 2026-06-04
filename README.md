@@ -2,6 +2,8 @@
 
 A production-grade multi-agent system built on Claude, GraphQL subscriptions, pgvector, and TypeScript — simulating what Salesforce deploys for Fortune 500 clients.
 
+🌐 **Live Demo**: [feisty-magic-production-6828.up.railway.app](https://feisty-magic-production-6828.up.railway.app)
+
 ---
 
 ## Architecture
@@ -51,45 +53,6 @@ A production-grade multi-agent system built on Claude, GraphQL subscriptions, pg
 | **New Chat button** | Start a fresh session without page refresh |
 | **Markdown rendering** | Tables, headers, numbered lists, bullets, checkboxes in chat |
 | **TypeScript end-to-end** | Schema-first GraphQL with full type safety |
-
----
-
-## Quick Start
-
-### Prerequisites
-- Docker Desktop
-- Anthropic API key — [console.anthropic.com](https://console.anthropic.com)
-
-### Run
-
-```bash
-# 1. Clone / unzip the project
-cd agentforce-platform
-
-# 2. Add your API key to .env
-echo "ANTHROPIC_API_KEY=sk-ant-..." >> .env
-
-# 3. Start everything
-docker compose up --build
-```
-
-Open [http://localhost:3000](http://localhost:3000)
-
-First run takes ~2 minutes — Postgres starts, migrations run, and the DB is seeded automatically.
-
-### Restart fresh
-
-```bash
-# Stop all services and wipe the database
-docker compose down -v && docker compose up --build
-```
-
-### Development (without Docker for app)
-
-```bash
-# Requires Node 20+ and Docker for Postgres only
-./scripts/dev.sh
-```
 
 ---
 
@@ -164,28 +127,36 @@ agentforce-platform/
 
 ## Deployment
 
-### Railway (recommended)
+Deployed on **Railway** with 3 services + managed PostgreSQL:
 
-```bash
-brew install railway
-railway login
-railway init
-railway up
-```
+| Service | Description |
+|---|---|
+| `backend` | Apollo Server — root directory: `backend/`, port 4000 |
+| `feisty-magic` (frontend) | React + nginx — root directory: `frontend/`, port 3000 |
+| `Postgres` | Railway managed PostgreSQL with pgvector extension |
 
-Add a PostgreSQL database from the Railway dashboard, then set:
-```
-ANTHROPIC_API_KEY=your-key
-JWT_SECRET=a-random-string
-```
+### Environment Variables
 
-### VPS (DigitalOcean / AWS EC2)
+**Backend:**
 
-```bash
-git clone your-repo && cd agentforce-platform
-cp .env.example .env   # fill in ANTHROPIC_API_KEY
-docker compose up -d
-```
+| Variable | Description |
+|---|---|
+| `ANTHROPIC_API_KEY` | Your Anthropic API key |
+| `DATABASE_URL` | Auto-injected by Railway from Postgres service |
+| `JWT_SECRET` | Random secret string |
+| `PORT` | `4000` |
+
+**Frontend:**
+
+| Variable | Description |
+|---|---|
+| `VITE_GRAPHQL_URL` | `https://<backend-domain>/graphql` |
+| `VITE_WS_URL` | `wss://<backend-domain>/graphql` |
+
+### Notes
+- Prisma migrations and DB seeding run automatically on container start
+- Frontend Dockerfile passes `VITE_*` vars as build args so Vite bakes them into the bundle at build time
+- pgvector extension is enabled via `CREATE EXTENSION IF NOT EXISTS vector` in the initial migration
 
 ---
 
@@ -216,26 +187,6 @@ Running all 20 cases against every agent produces meaningless scores — a Resea
 4. **Agentic tool use correctness** — The CRM agent loop collects all `tool_use` blocks from a single response and returns them as one batched `tool_result` message — matching the Anthropic API requirement that every `tool_use` id has a corresponding `tool_result` in the immediately following message.
 
 5. **HITL implementation** — After emitting `APPROVAL_REQUIRED`, the orchestrator polls the DB every second for up to 5 minutes. The frontend `resolveApproval` mutation updates the record status, which the polling loop detects to unblock execution.
-
----
-
-## Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | ✅ | Your Anthropic API key |
-| `DATABASE_URL` | auto | Injected by Docker Compose |
-| `JWT_SECRET` | optional | Change in production |
-| `PORT` | optional | Backend port (default 4000) |
-
----
-
-## Known Setup Notes
-
-- **OpenSSL on Alpine** — The backend Dockerfile installs `openssl` via `apk`, required for Prisma on `node:20-alpine`.
-- **GraphQL schema copy** — `tsc` doesn't copy `.graphql` files to `dist/`. The Dockerfile explicitly runs `cp -r src/graphql/schema dist/graphql/schema` after the build step.
-- **graphql-ws v5** — Uses `makeServer` API with manual WebSocket wiring, not the older `useServer` from `graphql-ws/lib/use/ws`.
-- **Stale session memory** — If the agent references a previous attempt, use the **+** button to start a fresh session rather than refreshing the page.
 
 ---
 
